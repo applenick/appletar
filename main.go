@@ -1,11 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/minotar/minecraft"
 	"image"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -15,13 +17,14 @@ import (
 	"time"
 )
 
+var Config *MinotarConfig
+
 const (
 	DefaultSize = uint(180)
 	MaxSize     = uint(300)
 	MinSize     = uint(8)
 
 	StaticLocation = "www"
-	SkinCache
 
 	ListenOn = ":9999"
 
@@ -31,8 +34,14 @@ const (
 	TimeoutActualSkin       = 2 * Days
 	TimeoutFailedFetch      = 15 * Minutes
 
-	MinotarVersion = "1.2"
+	MinotarVersion = "1.3"
 )
+
+type MinotarConfig struct {
+	DiskCache     bool `json:"disk_cache"`
+	ErrorLogging  bool `json:"error_logging"`
+	AccessLogging bool `json:"access_logging"`
+}
 
 func serveStatic(w http.ResponseWriter, r *http.Request, inpath string) error {
 	inpath = path.Clean(inpath)
@@ -184,7 +193,32 @@ func downloadPage(w http.ResponseWriter, r *http.Request) {
 	skinPage(w, r)
 }
 
+func saveLocalSkin(username string, skin minecraft.Skin) {
+	ioutil.WriteFile("skins/"+username+".png", []byte(skin.Image))
+}
+
+func getLocalSkin(username string) (minecraft.Skin, error) {
+	fs, err := os.Open("skins/" + username + ".png")
+	if err != nil {
+		return minecraft.Skin{}, err
+	}
+
+	img, _, err := image.Decode(fs)
+	if err != nil {
+		return minecraft.Skin{}, err
+	}
+
+	return minecraft.Skin{Image: img}, err
+}
+
 func fetchSkin(username string) minecraft.Skin {
+	if Config.DiskCache {
+		// Check for the skin locally first
+		skin, err := getLocalSkin(username)
+		if err == nil {
+			return skin
+		}
+	}
 	skin, err := minecraft.GetSkin(minecraft.User{Name: username})
 	if err != nil {
 		// Problem with the returned image, probably means we have an incorrect username
@@ -202,12 +236,33 @@ func fetchSkin(username string) minecraft.Skin {
 				skin, _ = minecraft.GetSkin(minecraft.User{Name: "char"})
 			}
 		}
+
+		if Config.DiskCache {
+			saveLocalSkin(user.Name, skin)
+		}
 	}
 
 	return skin
 }
 
+func loadConfiguration() *MinotarConfig {
+	fileConfig, err := ioutil.ReadFile("config.json")
+	if err != nil {
+		// Problem loading the configuration, load default
+		fileConfig = []byte(`{"disk_cache": false,"access_logging": false,"error_logging": true}`)
+	}
+
+	config := &MinotarConfig{}
+	if err := json.Unmarshal(fileConfig, &config); err != nil {
+		panic(err)
+	}
+
+	return config
+}
+
 func main() {
+	Config = loadConfiguration()
+
 	avatarPage := fetchImageProcessThen(func(skin minecraft.Skin) (image.Image, error) {
 		return GetHead(skin)
 	})
