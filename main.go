@@ -23,7 +23,7 @@ const (
 	StaticLocation = "www"
 	SkinCache
 
-	ListenOn = ":9999"
+	ListenOn = ":80"
 
 	Minutes            uint = 60
 	Hours                   = 60 * Minutes
@@ -218,8 +218,8 @@ func main() {
 	r := mux.NewRouter()
 	r.NotFoundHandler = NotFoundHandler{}
 
-	r.HandleFunc("/avatar/{username:"+minecraft.ValidUsernameRegex+"}{extension:(.png)?}", avatarPage)
-	r.HandleFunc("/avatar/{username:"+minecraft.ValidUsernameRegex+"}/{size:[0-9]+}{extension:(.png)?}", avatarPage)
+	r.HandleFunc("/{username:"+minecraft.ValidUsernameRegex+"}{extension:(.png)?}", avatarPage)
+	r.HandleFunc("/{username:"+minecraft.ValidUsernameRegex+"}/{size:[0-9]+}{extension:(.png)?}", avatarPage)
 
 	r.HandleFunc("/helm/{username:"+minecraft.ValidUsernameRegex+"}{extension:(.png)?}", helmPage)
 	r.HandleFunc("/helm/{username:"+minecraft.ValidUsernameRegex+"}/{size:[0-9]+}{extension:(.png)?}", helmPage)
