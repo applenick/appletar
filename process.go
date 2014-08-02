@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"github.com/minotar/minecraft"
+	"github.com/applenick/minecraft"
 	"github.com/nfnt/resize"
 	"image"
 	"image/draw"
